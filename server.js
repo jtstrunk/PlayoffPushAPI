@@ -25,6 +25,47 @@ app.get('/getplayers', (req, res) => {
   });
 });
 
+app.get('/login', (req, res) => {
+  const { username, password } = req.query;
+  console.log('loggin in with', username, password)
+
+  if (!username || !password) {
+    res.status(400).json({ error: 'Missing username or password' });
+    return;
+  }
+
+  db.all(
+    'SELECT * FROM Users WHERE username = ? AND password = ?',
+    [username, password],
+    (err, rows) => {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+
+      if (rows.length > 0) {
+        res.json({ success: true, user: rows[0] });
+      } else {
+        res.status(401).json({ success: false, message: 'Invalid username or password' });
+      }
+    }
+  );
+});
+
+app.get('/getuserleagues', (req, res) => {
+  const { username } = req.query;
+  console.log('getting leagues for', username)
+
+  db.all('SELECT li.id AS leagueid, li.name AS name, li.status AS status FROM LeagueInformation li JOIN LeagueUser lu ON li.id = lu.leagueid JOIN Users u ON lu.userid = u.playerid WHERE u.username = ?', 
+    [username], (err, rows) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    res.json(rows);
+  });
+});
+
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
