@@ -66,6 +66,21 @@ app.get('/getuserleagues', (req, res) => {
   });
 });
 
+app.get('/getleaguesinformation', (req, res) => {
+  const { id } = req.query;
+  console.log('getting leagues for', id)
+
+  db.all('SELECT * FROM LeagueUser WHERE leagueid = ?', 
+    [id], (err, rows) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    console.log(rows)
+    res.json(rows);
+  });
+});
+
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
