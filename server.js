@@ -62,6 +62,7 @@ app.get('/getuserleagues', (req, res) => {
       res.status(500).json({ error: err.message });
       return;
     }
+
     res.json(rows);
   });
 });
@@ -70,16 +71,92 @@ app.get('/getleaguesinformation', (req, res) => {
   const { id } = req.query;
   console.log('getting leagues for', id)
 
-  db.all('SELECT * FROM LeagueUser WHERE leagueid = ?', 
+  db.all(`SELECT
+      lu.leagueid,
+      lu.draftposition,
+      lu.userid,
+      lu.teamname,
+      u.username
+    FROM LeagueUser lu
+    JOIN Users u ON lu.userid = u.playerid
+    WHERE leagueid = ?`, 
     [id], (err, rows) => {
     if (err) {
       res.status(500).json({ error: err.message });
       return;
     }
-    console.log(rows)
+
     res.json(rows);
   });
 });
+
+app.get('/draftplayer', (req, res) => {
+  const { leagueid, userid, playerid } = req.query;
+  
+  // Validate that each value exists and is a number
+  if (!leagueid || !userid || !playerid) {
+    res.status(400).json({ error: 'leagueid, userid, and playerid are required.' });
+    return;
+  }
+
+  const leagueidNum = Number(leagueid);
+  const useridNum = Number(userid);
+  const playeridNum = Number(playerid);
+
+  db.run(
+    `INSERT INTO UserTeam (leagueid, userid, playerid)
+     VALUES (?, ?, ?)`,
+    [leagueidNum, useridNum, playeridNum],
+    function(err) {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      // this.lastID gives the auto-incremented id of inserted row
+      res.json({ success: true, id: this.lastID });
+    }
+  );
+});
+
+app.get('/getuserteam', (req, res) => {
+  console.log('get user team');
+  const { leagueid } = req.query;
+  if (!leagueid) {
+    res.status(400).json({ error: 'leagueid is required.' });
+    return;
+  }
+
+  const leagueidNum = Number(leagueid);
+  db.all(
+    `SELECT
+      ut.leagueid,
+      ut.userid,
+      ut.playerid,
+      u.username,
+      dp.name,
+      dp.position,
+      pp.wildcard,
+      pp.divisional,
+      pp.championship,
+      pp.superbowl,
+      pp.wildcard + pp.divisional + pp.championship + pp.superbowl as totalpoints
+    FROM UserTeam ut
+    JOIN Users u ON ut.userid = u.playerid
+    JOIN DraftablePlayer dp ON ut.playerid = dp.playerid
+    JOIN PlayerPoints pp ON dp.playerid = pp.playerid
+    WHERE leagueid = ?;`,
+    [leagueidNum],
+    (err, rows) => {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      console.log('Rows returned:', rows.length);
+      res.json(rows);
+    }
+  );
+});
+
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
