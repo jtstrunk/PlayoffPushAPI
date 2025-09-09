@@ -52,6 +52,28 @@ app.get('/login', (req, res) => {
   );
 });
 
+app.get('/register', (req, res) => {
+  const { username, password } = req.query;
+  const emailaddress = 'testemail@gmail.com'; // constant or derived
+
+  if (!username || !password) {
+    res.status(400).json({ error: 'Missing username or password' });
+    return;
+  }
+
+  db.run(
+    'INSERT INTO Users (username, password, emailaddress) VALUES (?, ?, ?)',
+    [username, password, emailaddress],
+    function(err) {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      res.json({ success: true, user: { username }, userId: this.lastID });
+    }
+  );
+});
+
 app.get('/getuserleagues', (req, res) => {
   const { username } = req.query;
   console.log('getting leagues for', username)
