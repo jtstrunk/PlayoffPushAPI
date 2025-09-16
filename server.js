@@ -112,8 +112,28 @@ app.get('/getleaguesinformation', (req, res) => {
   });
 });
 
+app.get('/getspecificleagueinformation', (req, res) => {
+  const { leagueid } = req.query;
+  console.log('getting league information for', leagueid)
+
+  db.all(`SELECT
+      id,
+      name,
+      status
+    FROM LeagueInformation
+    WHERE id = ?`, 
+    [leagueid], (err, rows) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+
+    res.json(rows);
+  });
+});
+
 app.get('/draftplayer', (req, res) => {
-  const { leagueid, userid, playerid } = req.query;
+  const { leagueid, userid, playerid, draftpick } = req.query;
   
   // Validate that each value exists and is a number
   if (!leagueid || !userid || !playerid) {
@@ -124,11 +144,12 @@ app.get('/draftplayer', (req, res) => {
   const leagueidNum = Number(leagueid);
   const useridNum = Number(userid);
   const playeridNum = Number(playerid);
+  const draftpickNum = Number(draftpick);
 
   db.run(
-    `INSERT INTO UserTeam (leagueid, userid, playerid)
-     VALUES (?, ?, ?)`,
-    [leagueidNum, useridNum, playeridNum],
+    `INSERT INTO UserTeam (leagueid, userid, playerid, draftpick)
+     VALUES (?, ?, ?, ?)`,
+    [leagueidNum, useridNum, playeridNum, draftpickNum],
     function(err) {
       if (err) {
         res.status(500).json({ error: err.message });
@@ -154,18 +175,20 @@ app.get('/getuserteam', (req, res) => {
       ut.leagueid,
       ut.userid,
       ut.playerid,
+      ut.draftpick,
       u.username,
       dp.name,
       dp.position,
-      pp.wildcard,
-      pp.divisional,
-      pp.championship,
-      pp.superbowl,
-      pp.wildcard + pp.divisional + pp.championship + pp.superbowl as totalpoints
+      dp.team as teamname,
+      COALESCE(pp.wildcard, 0) AS wildcard,
+      COALESCE(pp.divisional, 0) AS divisional,
+      COALESCE(pp.championship, 0) AS championship,
+      COALESCE(pp.superbowl, 0) AS superbowl,
+      COALESCE(pp.wildcard, 0) + COALESCE(pp.divisional, 0) + COALESCE(pp.championship, 0) + COALESCE(pp.superbowl, 0) AS totalpoints
     FROM UserTeam ut
     JOIN Users u ON ut.userid = u.playerid
     JOIN DraftablePlayer dp ON ut.playerid = dp.playerid
-    JOIN PlayerPoints pp ON dp.playerid = pp.playerid
+    LEFT JOIN PlayerPoints pp ON dp.playerid = pp.playerid
     WHERE leagueid = ?;`,
     [leagueidNum],
     (err, rows) => {
@@ -179,6 +202,24 @@ app.get('/getuserteam', (req, res) => {
   );
 });
 
+app.get('/setstatus', (req, res) => {
+  const { leagueid, status} = req.query;
+  const leagueidNum = Number(leagueid);
+
+  console.log('setting status', leagueidNum, status)
+  // UPDATE LeagueInformation SET status = 'Pre-Draft' WHERE id = 1;
+  db.run(
+    `UPDATE LeagueInformation SET status = ? WHERE id = ?`,
+    [status, leagueidNum],
+    function(err) {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      res.json({ success: true, id: leagueidNum, leagueStatus: status});
+    }
+  );
+});
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
