@@ -203,7 +203,7 @@ app.get('/getuserteam', (req, res) => {
 });
 
 app.get('/setstatus', (req, res) => {
-  const { leagueid, status} = req.query;
+  const { leagueid, status } = req.query;
   const leagueidNum = Number(leagueid);
 
   console.log('setting status', leagueidNum, status)
@@ -220,6 +220,60 @@ app.get('/setstatus', (req, res) => {
     }
   );
 });
+
+app.get('/createleague', (req, res) => {
+  const { leaguename } = req.query;
+  const status = 'Pre-Draft'
+
+  console.log('creating league', leaguename, 'with status', status)
+  db.run(
+    `INSERT INTO LeagueInformation(name, status) VALUES (?, ?)`,
+    [leaguename, status],
+    function(err) {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      res.json({ success: true, id: this.lastID });
+    }
+  );
+});
+
+app.get('/leagueadduser', (req, res) => {
+  const { leagueid, teamname } = req.query;
+  const leagueidNum = Number(leagueid);
+
+  console.log('leagueid', leagueidNum)
+  console.log('teamname', teamname)
+  db.get(
+    `SELECT playerid FROM users WHERE username = ?`,
+    [teamname],
+    (err, row) => {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      if (!row) {
+        res.status(404).json({ error: 'User not found' });
+        return;
+      }
+      const userid = row.playerid;
+
+      db.run(
+        `INSERT INTO LeagueUser (leagueid, userid, teamname) VALUES (?, ?, ?)`,
+        [leagueidNum, userid, teamname],
+        function(err) {
+          if (err) {
+            res.status(500).json({ error: err.message });
+            return;
+          }
+          res.json({ success: true, id: this.lastID });
+        }
+      );
+    }
+  );
+});
+
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
