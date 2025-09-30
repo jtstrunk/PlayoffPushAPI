@@ -206,8 +206,6 @@ app.get('/setstatus', (req, res) => {
   const { leagueid, status } = req.query;
   const leagueidNum = Number(leagueid);
 
-  console.log('setting status', leagueidNum, status)
-  // UPDATE LeagueInformation SET status = 'Pre-Draft' WHERE id = 1;
   db.run(
     `UPDATE LeagueInformation SET status = ? WHERE id = ?`,
     [status, leagueidNum],
@@ -225,10 +223,20 @@ app.get('/createleague', (req, res) => {
   const { leaguename } = req.query;
   const status = 'Pre-Draft'
 
-  console.log('creating league', leaguename, 'with status', status)
+  const numbers = '0123456789';
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  let password = '';
+  for (let i = 0; i < 4; i++) {
+    password += numbers.charAt(Math.floor(Math.random() * numbers.length));
+  }
+  for (let i = 0; i < 4; i++) {
+    password += letters.charAt(Math.floor(Math.random() * letters.length));
+  }
+
+  console.log('creating league', leaguename, 'with status', status, 'with secure password', password)
   db.run(
-    `INSERT INTO LeagueInformation(name, status) VALUES (?, ?)`,
-    [leaguename, status],
+    `INSERT INTO LeagueInformation(name, status, password) VALUES (?, ?, ?)`,
+    [leaguename, status, password],
     function(err) {
       if (err) {
         res.status(500).json({ error: err.message });
@@ -243,8 +251,6 @@ app.get('/leagueadduser', (req, res) => {
   const { leagueid, teamname } = req.query;
   const leagueidNum = Number(leagueid);
 
-  console.log('leagueid', leagueidNum)
-  console.log('teamname', teamname)
   db.get(
     `SELECT playerid FROM users WHERE username = ?`,
     [teamname],
@@ -274,6 +280,27 @@ app.get('/leagueadduser', (req, res) => {
   );
 });
 
+app.get('/checkleaguepassword', (req, res) => {
+  const { id, inputpassword } = req.query;
+
+  db.get(
+    `SELECT * FROM LeagueInformation WHERE id = ? AND password = ?`,
+    [id, inputpassword],
+    (err, row) => {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      if (row) {
+        // Password matches league with this id
+        res.json({ success: true, leagueId: row.id });
+      } else {
+        // No matching league found or password incorrect
+        res.json({ success: false, message: 'Invalid league ID or password' });
+      }
+    }
+  );
+});
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
