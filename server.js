@@ -132,6 +132,23 @@ app.get('/getspecificleagueinformation', (req, res) => {
   });
 });
 
+app.get('/getleaguepassword', (req, res) => {
+  const { leagueid } = req.query;
+
+  db.all(`SELECT
+      password
+    FROM LeagueInformation
+    WHERE id = ?`, 
+    [leagueid], (err, rows) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+
+    res.json(rows);
+  });
+});
+
 app.get('/draftplayer', (req, res) => {
   const { leagueid, userid, playerid, draftpick } = req.query;
   
