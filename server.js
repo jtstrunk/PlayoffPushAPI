@@ -236,6 +236,26 @@ app.get('/setstatus', (req, res) => {
   );
 });
 
+app.get('/deleteleague', (req, res) => {
+  const { leagueid } = req.query;
+  console.log('deleting league');
+
+  db.run('DELETE FROM UserTeam WHERE leagueid = ?', [leagueid], function(err1) {
+    if (err1) return res.status(500).json({ error: err1.message });
+
+    db.run('DELETE FROM LeagueUser WHERE leagueid = ?', [leagueid], function(err2) {
+      if (err2) return res.status(500).json({ error: err2.message });
+
+      db.run('DELETE FROM LeagueInformation WHERE id = ?', [leagueid], function(err3) {
+        if (err3) return res.status(500).json({ error: err3.message });
+
+        res.json({ status: 'deleted all league data' });
+      });
+    });
+  });
+});
+
+
 app.get('/createleague', (req, res) => {
   const { leaguename } = req.query;
   const status = 'Pre-Draft'
