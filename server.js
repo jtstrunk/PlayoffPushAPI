@@ -78,8 +78,29 @@ app.get('/getuserleagues', (req, res) => {
   const { username } = req.query;
   console.log('getting leagues for', username)
 
-  db.all('SELECT li.id AS leagueid, li.name AS name, li.status AS status FROM LeagueInformation li JOIN LeagueUser lu ON li.id = lu.leagueid JOIN Users u ON lu.userid = u.playerid WHERE u.username = ?', 
+  db.all(`SELECT li.id AS leagueid, 
+      li.name AS name, 
+      li.status AS status 
+      FROM LeagueInformation li 
+      JOIN LeagueUser lu ON li.id = lu.leagueid 
+      JOIN Users u ON lu.userid = u.playerid 
+      WHERE u.username = ?`, 
     [username], (err, rows) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+
+    res.json(rows);
+  });
+});
+
+app.get('/getleagueusers', (req, res) => {
+  const { leagueid } = req.query;
+  console.log('getting leagues for', leagueid)
+
+  db.all(`select userid, teamname, draftposition from LeagueUser where leagueid = ?`, 
+    [leagueid], (err, rows) => {
     if (err) {
       res.status(500).json({ error: err.message });
       return;
