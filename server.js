@@ -1,8 +1,24 @@
 const express = require('express');
+const http = require('http');
 const cors = require('cors');
 const sqlite3 = require('sqlite3').verbose();
+const { Server } = require('socket.io');
 const app = express();
+const server = http.createServer(app);
 app.use(cors());
+
+const io = new Server(server, {
+  cors: {
+    origin: '*', // or restrict to your clients
+    methods: ["GET", "POST"]
+  }
+});
+
+const port = process.env.PORT || 3000;
+
+server.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
+});
 
 const db = new sqlite3.Database('./playoffpush.db', (err) => {
   if (err) {
@@ -13,6 +29,22 @@ const db = new sqlite3.Database('./playoffpush.db', (err) => {
 
 app.get('/', (req, res) => {
   res.send('<h1>Hello, Express.js Server!</h1>');
+});
+
+
+io.on('connection', (socket) => {
+  // Expect client to send joinRoom event with name and id
+  socket.on('joinRoom', ({ name, id }) => {
+    const roomName = `draft-${name}-${id}`;
+    socket.join(roomName);
+    console.log(`Socket ${socket.id} joined room ${roomName}`);
+  });
+
+  socket.on('draftPlayer', (data) => {
+    const roomName = `draft-${data.leaguename}-${data.id}`;
+    // Broadcast only to this room except sender:
+    socket.to(roomName).emit('playerDrafted', data);
+  });
 });
 
 app.get('/getplayers', (req, res) => {
@@ -99,7 +131,7 @@ app.get('/getleagueusers', (req, res) => {
   const { leagueid } = req.query;
   console.log('getting leagues for', leagueid)
 
-  db.all(`select userid, teamname, draftposition from LeagueUser where leagueid = ?`, 
+  db.all(`select userid, teamname from LeagueUser where leagueid = ? order by draftposition`, 
     [leagueid], (err, rows) => {
     if (err) {
       res.status(500).json({ error: err.message });
@@ -358,9 +390,4 @@ app.get('/checkleaguepassword', (req, res) => {
       }
     }
   );
-});
-
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
 });
