@@ -57,6 +57,20 @@ app.get('/getplayers', (req, res) => {
   });
 });
 
+app.get('/getuserinformation', (req, res) => {
+  const { username } = req.query;
+  console.log('getting leagues for', username)
+
+  db.all('SELECT username, emailaddress FROM Users WHERE username = ?', 
+    [username], (err, rows) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    res.json(rows);
+  });
+});
+
 app.get('/login', (req, res) => {
   const { username, password } = req.query;
   console.log('loggin in with', username, password)
@@ -105,6 +119,28 @@ app.get('/register', (req, res) => {
     }
   );
 });
+
+app.get('/changepassword', (req, res) => {
+  const { username, currentPassword, newPassword } = req.query;
+
+  db.run(
+    'UPDATE Users SET password = ? WHERE password = ? AND username = ?',
+    [newPassword, currentPassword, username],
+    function(err) {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      // No rows updated means incorrect current password or username
+      if (this.changes === 0) {
+        res.status(400).json({ error: 'Incorrect username or current password' });
+        return;
+      }
+      res.json({ success: true, user: { username }, userId: this.lastID });
+    }
+  );
+});
+
 
 app.get('/getuserleagues', (req, res) => {
   const { username } = req.query;
