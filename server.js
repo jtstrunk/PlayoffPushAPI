@@ -5,6 +5,11 @@ const sqlite3 = require('sqlite3').verbose();
 const { Server } = require('socket.io');
 const app = express();
 const server = http.createServer(app);
+const fs = require('fs');
+const path = require('path');
+const multer = require('multer');
+const upload = multer();
+app.use('/public', express.static(path.join(__dirname, 'public')));
 app.use(cors());
 
 const io = new Server(server, {
@@ -68,6 +73,36 @@ app.get('/getuserinformation', (req, res) => {
       return;
     }
     res.json(rows);
+  });
+});
+
+app.get('/getuserprofilepicture', (req, res) => {
+  const { username } = req.query;
+
+  db.get(`SELECT image_data FROM UserImages WHERE username = ?`, [username], (err, row) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+
+    if (row && row.image_data) {
+      res.contentType('image/png'); // or jpg
+      res.send(row.image_data);
+    } else {
+      res.sendFile(path.join(__dirname, 'public', 'profile.png'));
+    }
+  });
+});
+
+
+app.post('/insertuserprofilepicture', upload.single('profile'), (req, res) => {
+  const username = req.query.username;
+  const imgBuffer = req.file.buffer;
+  db.run(`INSERT OR REPLACE INTO UserImages (username, image_data) VALUES (?, ?)`, [username, imgBuffer], (err) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+    } else {
+      res.json({ success: true });
+    }
   });
 });
 
