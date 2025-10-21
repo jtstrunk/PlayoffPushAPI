@@ -462,3 +462,22 @@ app.get('/checkleaguepassword', (req, res) => {
     }
   );
 });
+
+app.get('/getdraftedplayers', (req, res) => {
+  db.all(
+    `SELECT DISTINCT ut.playerid, dp.name, dp.position, dp.team,
+       pp.wildcard, pp.divisional, pp.championship, pp.superbowl
+      FROM UserTeam ut
+      JOIN DraftablePlayer dp ON ut.playerid = dp.playerid
+      LEFT JOIN PlayerPoints pp ON ut.playerid = pp.playerid;`,
+    [],
+    (err, rows) => {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      
+      res.json(rows);
+    }
+  );
+});
