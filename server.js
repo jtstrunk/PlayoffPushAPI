@@ -10,6 +10,7 @@ const path = require('path');
 const multer = require('multer');
 const upload = multer();
 app.use('/public', express.static(path.join(__dirname, 'public')));
+app.use(express.json());
 app.use(cors());
 
 const io = new Server(server, {
@@ -480,4 +481,40 @@ app.get('/getdraftedplayers', (req, res) => {
       res.json(rows);
     }
   );
+});
+
+// Expecting an array of objects { playerid, week, points }
+app.post('/updateplayerstats', (req, res) => {
+  const updates = req.body;
+  const year = '24-25';
+  const validWeeks = ['wildcard', 'divisional', 'championship', 'superbowl'];
+
+  if (!Array.isArray(updates)) {
+    return res.status(400).json({ error: 'Expected an array of updates' });
+  }
+
+  const updatePromises = updates.map(({ playerid, week, points }) => {
+    return new Promise((resolve, reject) => {
+      if (!validWeeks.includes(week)) {
+        return reject(new Error(`Invalid week value: ${week}`));
+      }
+
+      const sql = `UPDATE PlayerPoints SET ${week} = ? WHERE playerid = ? AND year = ?`;
+      db.run(sql, [points, playerid, year], function(err) {
+        if (err) {
+          reject(err);
+        } else {
+          resolve({ playerid, changes: this.changes });
+        }
+      });
+    });
+  });
+
+  Promise.allSettled(updatePromises).then(results => {
+    const errors = results.filter(r => r.status === 'rejected').map(r => r.reason.message);
+    if (errors.length) {
+      return res.status(500).json({ error: errors });
+    }
+    res.json({ success: true, updates: results.map(r => r.value) });
+  });
 });
