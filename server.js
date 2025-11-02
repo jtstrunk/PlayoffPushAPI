@@ -493,28 +493,53 @@ app.post('/updateplayerstats', (req, res) => {
     return res.status(400).json({ error: 'Expected an array of updates' });
   }
 
+  // For each update, run UPSERT SQL
   const updatePromises = updates.map(({ playerid, week, points }) => {
     return new Promise((resolve, reject) => {
       if (!validWeeks.includes(week)) {
         return reject(new Error(`Invalid week value: ${week}`));
       }
 
-      const sql = `UPDATE PlayerPoints SET ${week} = ? WHERE playerid = ? AND year = ?`;
-      db.run(sql, [points, playerid, year], function(err) {
-        if (err) {
-          reject(err);
-        } else {
-          resolve({ playerid, changes: this.changes });
+      // Default zero points for all weeks except the updated one
+      const weeksObj = { wildcard: 0, divisional: 0, championship: 0, superbowl: 0 };
+      weeksObj[week] = points;
+
+      // UPSERT SQL: insert or update on conflict on (playerid, year)
+      const sql = `
+        INSERT INTO PlayerPoints (playerid, year, wildcard, divisional, championship, superbowl)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(playerid, year) DO UPDATE SET
+          ${week} = excluded.${week}
+      `;
+
+      db.run(
+        sql,
+        [
+          playerid,
+          year,
+          weeksObj.wildcard,
+          weeksObj.divisional,
+          weeksObj.championship,
+          weeksObj.superbowl,
+        ],
+        function (err) {
+          if (err) {
+            console.error('SQLite error:', err.message);
+            reject(err);
+          } else {
+            resolve({ playerid, changes: this.changes });
+          }
         }
-      });
+      );
     });
   });
 
-  Promise.allSettled(updatePromises).then(results => {
-    const errors = results.filter(r => r.status === 'rejected').map(r => r.reason.message);
+  Promise.allSettled(updatePromises).then((results) => {
+    const errors = results.filter((r) => r.status === 'rejected').map((r) => r.reason.message);
     if (errors.length) {
       return res.status(500).json({ error: errors });
     }
-    res.json({ success: true, updates: results.map(r => r.value) });
+    res.json({ success: true, updates: results.map((r) => r.value) });
   });
 });
+
